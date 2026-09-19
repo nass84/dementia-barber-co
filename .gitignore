@@ -1,0 +1,5 @@
+.DS_Store
+node_modules/
+
+# Source-only assets — full-res originals, logo working files, unreleased photos.
+source assets/
