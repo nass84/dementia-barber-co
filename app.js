@@ -1,104 +1,55 @@
-/* The Dementia Barber Co. — small progressive enhancements.
-   Everything here is optional: the site is fully usable with JS disabled. */
+// The Dementia Barber Co. — mobile menu and enquiry form.
+// Everything works without this file: anchors scroll natively and the form
+// falls back to a plain mailto: submit.
+
 (function () {
-  'use strict';
+  const ENQUIRY_EMAIL = 'dementiabarberco@outlook.com';
 
-  /* --- Mobile navigation ------------------------------------------- */
-  var toggle = document.querySelector('.navtoggle');
-  var links = document.getElementById('navLinks');
-  if (toggle && links) {
-    toggle.addEventListener('click', function () {
-      var open = links.classList.toggle('open');
-      toggle.setAttribute('aria-expanded', String(open));
-    });
-    links.addEventListener('click', function (e) {
-      if (e.target.tagName === 'A') {
-        links.classList.remove('open');
-        toggle.setAttribute('aria-expanded', 'false');
-      }
-    });
+  // --- Mobile menu ---
+  const burger = document.querySelector('.nav-burger');
+  const menu = document.getElementById('mobile-menu');
+
+  function setMenu(open) {
+    burger.setAttribute('aria-expanded', String(open));
+    burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    menu.hidden = !open;
   }
 
-  /* --- Shadow on the sticky nav once the page has moved ------------- */
-  var nav = document.querySelector('.nav');
-  if (nav) {
-    var onScroll = function () {
-      nav.classList.toggle('is-stuck', window.scrollY > 8);
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-  }
+  burger.addEventListener('click', function () {
+    setMenu(menu.hidden);
+  });
+  menu.addEventListener('click', function (e) {
+    if (e.target.closest('a')) setMenu(false);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !menu.hidden) {
+      setMenu(false);
+      burger.focus();
+    }
+  });
 
-  /* --- Staggered reveal on scroll ----------------------------------- */
-  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var targets = document.querySelectorAll('.reveal');
-
-  if (reduced || !('IntersectionObserver' in window)) {
-    Array.prototype.forEach.call(targets, function (el) { el.classList.add('in'); });
-  } else {
-    var observer = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (!entry.isIntersecting) return;
-        var group = entry.target.parentElement
-          ? Array.prototype.indexOf.call(entry.target.parentElement.children, entry.target)
-          : 0;
-        entry.target.style.transitionDelay = Math.min(group, 5) * 70 + 'ms';
-        entry.target.classList.add('in');
-        observer.unobserve(entry.target);
-      });
-    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
-
-    Array.prototype.forEach.call(targets, function (el) { observer.observe(el); });
-  }
-
-  /* --- Enquiry form ------------------------------------------------
-     Posts to Formspree. Until a real endpoint is pasted into the form's
-     data-endpoint attribute we do not pretend to send anything — the
-     visitor is pointed at the phone number and email instead. */
-  var form = document.getElementById('enquiryForm');
-  if (!form) return;
-
-  var status = document.getElementById('formStatus');
-  var endpoint = form.getAttribute('data-endpoint') || '';
-  var configured = endpoint.indexOf('REPLACE_ME') === -1 && endpoint.indexOf('http') === 0;
-
-  var say = function (message, kind) {
-    if (!status) return;
-    status.textContent = message;
-    status.className = 'form-status ' + (kind || '');
-  };
-
-  if (!configured) {
-    say('This form is not connected yet. Please call 07403 057708 or email dementiabarberco@outlook.com and I will come straight back to you.', 'err');
-  }
+  // --- Enquiry form ---
+  // Builds a readable email in the visitor's own mail app, then swaps the
+  // form for a thank-you note.
+  const form = document.querySelector('.enquiry');
+  const done = document.querySelector('.form-done');
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-
-    if (!configured) {
-      say('This form is not connected yet. Please call 07403 057708 or email dementiabarberco@outlook.com and I will come straight back to you.', 'err');
-      return;
-    }
-
-    var button = form.querySelector('button[type="submit"]');
-    if (button) { button.disabled = true; }
-    say('Sending your enquiry…');
-
-    fetch(endpoint, {
-      method: 'POST',
-      body: new FormData(form),
-      headers: { Accept: 'application/json' }
-    })
-      .then(function (res) {
-        if (!res.ok) throw new Error('Request failed with status ' + res.status);
-        form.reset();
-        say('Thank you — your enquiry has been sent. I aim to reply within two working days.', 'ok');
-      })
-      .catch(function () {
-        say('Sorry, that did not send. Please call 07403 057708 or email dementiabarberco@outlook.com instead.', 'err');
-      })
-      .finally(function () {
-        if (button) { button.disabled = false; }
-      });
+    const fd = new FormData(form);
+    const body =
+      'Name: ' + fd.get('name') + '\n' +
+      'Phone: ' + (fd.get('phone') || '-') + '\n' +
+      'Email: ' + fd.get('email') + '\n' +
+      'Enquiring as: ' + fd.get('type') + '\n\n' +
+      fd.get('message');
+    window.location.href =
+      'mailto:' + ENQUIRY_EMAIL +
+      '?subject=' + encodeURIComponent('Enquiry from ' + fd.get('name')) +
+      '&body=' + encodeURIComponent(body);
+    form.hidden = true;
+    done.hidden = false;
+    done.focus();
   });
+  done.tabIndex = -1;
 })();
